@@ -2,6 +2,11 @@
 
 import pretty_midi as pm
 import numpy as np
+# for harmonic processing
+import csv
+import ast
+import numpy as np
+from pychord import Chord, utils
 
 def midi_to_timeBeats(midi_file):
     """
@@ -203,3 +208,57 @@ def pitchDataProcessing(midi_file, notes_list, quantization):
   qTime = quantize_time(beatPosition, quantization)
 
   return processNoteList(notes_list, qTime)
+
+#----------- tratamento de harmonia
+
+def get_fund(csv_path="./midiDataTest/commu_meta.csv", track_id="commu00001"):
+    """Return a vector of chord roots for a given track.
+
+    Parameters
+    ----------
+    csv_path : str
+        Path to the metadata CSV file.
+    track_id : str
+        ID of the track to parse.
+
+    Returns
+    -------
+    numpy.ndarray
+        An ``n x 1`` array with the root index of each chord.
+
+    Raises
+    ------
+    ValueError
+        If the time signature is not suitable or there aren't exactly
+        two chords per beat.
+    """
+    # Read metadata for the desired track
+    with open(csv_path, "r", newline="") as f:
+        reader = csv.DictReader(f)
+        row = next((r for r in reader if r.get("id") == track_id), None)
+
+    if row is None:
+        raise ValueError(f"Track id {track_id} not found")
+
+    # Time signature check
+    input_signature = row["time_signature"]
+    numerator = int(input_signature.split("/")[0])
+    if numerator in [2, 4]:
+        time_signature = numerator
+    else:
+        raise ValueError("The time signature is not suitable for the model")
+
+    # Number of chords per beat check
+    prog = ast.literal_eval(row["chord_progressions"])
+    chord_list = prog[0]
+    num_measures = int(row["num_measures"])
+    n_chords = len(chord_list)
+    if n_chords / time_signature / num_measures != 2:
+        raise ValueError("there is not 2 chords per beat")
+
+    # Reduce to one chord per beat
+    reduced = [chord_list[i] for i in range(0, n_chords, 2)]
+
+    # Convert chord roots to numeric values
+    fundamentals = [utils.note_to_val(Chord(ch).root) for ch in reduced]
+    return np.array(fundamentals, dtype=np.int32)
