@@ -8,6 +8,9 @@ import ast
 import numpy as np
 from pychord import Chord, utils
 
+import argparse
+import os
+
 def midi_to_timeBeats(midi_file):
     """
     Processes a MIDI file and returns a table with beats and downbeats as a numpy array.
@@ -262,3 +265,56 @@ def get_fund(csv_path="./midiDataTest/commu_meta.csv", track_id="commu00001"):
     # Convert chord roots to numeric values
     fundamentals = [utils.note_to_val(Chord(ch).root) for ch in reduced]
     return np.array(fundamentals, dtype=np.int32)
+
+### processing midi to 4 bin 
+
+def midi_to_4bin(midi_path: str) -> np.ndarray:
+    """Convert MIDI to quantized note matrix with 4 subdivisions per beat.
+
+    Parameters
+    ----------
+    midi_path : str
+        Path to MIDI file.
+
+    Returns
+    -------
+    np.ndarray
+        Matrix of shape (n, 8) with quantized note data.
+    """
+    notes = parseCOMU(midi_path)
+    quantized = pitchDataProcessing(midi_path, notes, quantization=4)
+    return quantized
+
+
+def save_npz(data: np.ndarray, out_path: str) -> None:
+    """Save the quantized notes to a compressed npz file."""
+    np.savez_compressed(out_path, quantized_notes=data)
+
+# funcao principal aqui!!!!
+        #|
+        #|
+        #V
+
+def midiFileTo4bin(midi_path = "../midiDataTest/commu00001.mid"):
+    
+    #print(midi_path, out_path)
+    
+    #parser = argparse.ArgumentParser(description="Convert MIDI to 4-bin quantized NPZ")
+    #parser.add_argument("midi_path", help="Path to MIDI file")
+    #parser.add_argument("out_path", nargs="?", help="Output npz file")
+    #args = parser.parse_args()
+
+    #out_path = args.out_path
+    #if out_path is None:
+     #   base = os.path.splitext(os.path.basename(args.midi_path))[0]
+      #  out_path = base + "_4bin.npz"
+
+    data = midi_to_4bin(midi_path)
+    #print(data)
+    #save_npz(data, out_path)
+    #print(f"Saved quantized notes to {out_path}")
+    return np.array(data)
+
+### -------------------------
+
+
