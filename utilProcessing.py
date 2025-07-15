@@ -254,6 +254,7 @@ def get_fund(csv_path="./midiDataTest/commu_meta.csv", track_id="commu00001"):
     # Number of chords per beat check
     prog = ast.literal_eval(row["chord_progressions"])
     chord_list = prog[0]
+    #print(chord_list)
     num_measures = int(row["num_measures"])
     n_chords = len(chord_list)
     if n_chords / time_signature / num_measures != 2:
@@ -263,7 +264,7 @@ def get_fund(csv_path="./midiDataTest/commu_meta.csv", track_id="commu00001"):
     reduced = [chord_list[i] for i in range(0, n_chords, 2)]
 
     # Convert chord roots to numeric values
-    fundamentals = [utils.note_to_val(Chord(ch).root) for ch in reduced]
+    fundamentals = [utils.note_to_val(Chord(ch[0]).root) for ch in reduced]
     return np.array(fundamentals, dtype=np.int32)
 
 ### processing midi to 4 bin 

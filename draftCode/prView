@@ -1,0 +1,48 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+import numpy as np
+import matplotlib.pyplot as plt
+import pretty_midi as pm
+
+np.set_printoptions(threshold=np.inf, linewidth=np.inf)
+
+from utilProcessing import parseCOMU, midiFileTo4bin
+
+# função que eu estou importanto do meu notebook
+
+def plot_quant_pianoroll(midi_data):
+    max_pitch = 128  # Pitches no padrão MIDI (0-127)
+    beats_per_measure = 4  # Semicolcheias por beat
+    min_beat = midi_data[:, 0].min()   # Ajuste para remover buraco inicial
+    max_time = (midi_data[:, 3].max()) * beats_per_measure  # Considera as semicolcheias
+    
+    # Piano roll com resolução de semicolcheias
+    piano_roll = np.zeros((max_pitch, max_time))
+
+    # Preenchendo o piano roll
+    for row in midi_data:
+        #start_time = row[0] * beats_per_measure + row[1]  # Converte beat + semicolcheia em índice
+        #end_time = row[3] * beats_per_measure + row[4]    # Converte para índice de término
+        start_time = (row[0] - min_beat) * beats_per_measure + row[1]  # Ajuste de início
+        end_time = (row[3] - min_beat) * beats_per_measure + row[4]    # Ajuste de término
+        pitch = row[6]       # Pitch MIDI
+        velocity = row[7]    # Intensidade da nota
+
+        piano_roll[pitch, start_time:end_time] = velocity
+
+    # Plotando o piano roll
+    plt.figure(figsize=(14, 8))
+    #plt.xlim(0,16)
+    plt.imshow(piano_roll, origin="lower", aspect="auto", cmap="hot", interpolation="nearest")
+    plt.colorbar(label="Velocity")
+    plt.xlabel("Time (subdivided into semiquavers)")
+    plt.ylabel("Pitch")
+    plt.title("Piano Roll Representation with Semiquaver Resolution")
+    plt.savefig("testePR2")
+
+dados = midiFileTo4bin(midi_path = "../midiDataTest/commu00002.mid")
+
+if __name__ == "__main__":
+    plot_quant_pianoroll(dados)

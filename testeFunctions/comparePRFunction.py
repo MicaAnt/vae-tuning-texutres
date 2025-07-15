@@ -53,7 +53,7 @@ def viewPR_novo():
     print("Notas quantizadas:", arr)
 
     q = int(arr[0, 2])  # Quantização
-    max_index = np.max(arr[:, 3] * q + arr[:, 4])
+    max_index = np.max(arr[:, 3] * q + arr[:, 4]) 
     roll_npz = np.zeros((128, int(max_index)))
 
     for row in arr:
@@ -83,7 +83,7 @@ def viewPR_novo():
     plt.xlabel(f"Posição quantizada ({q} subdivisões)")
 
     plt.tight_layout()
-    plt.savefig(f"pianoRoll_{os.path.splitext(os.path.basename(midi_path))[0]}.png")
+    plt.savefig(f"NOVOpianoRoll_{os.path.splitext(os.path.basename(midi_path))[0]}.png")
    
 if __name__ == "__main__":
     viewPR_novo()
