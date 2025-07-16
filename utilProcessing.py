@@ -423,16 +423,29 @@ def combineFundChroma(fund, chroma):
 
     return output
 
-def midiToHarmony(trackId = "commu00002", midiPath = "../midiDataTest/", csv_path= "../midiDataTest/commu_meta.csv" ):
+####### TRANTANDO PITCH AND HARMONY
+
+def midiToPitchHarmony(trackId = "commu00002", dataSetPath = "./midiDataTest/", csv_path= "./midiDataTest/commu_meta.csv"):
 
     #csv_path="../midiDataTest/commu_meta.csv"
-    midi_path = buildMidiPath(midiPath, trackId)
+    midi_path = buildMidiPath(dataSetPath, trackId)
     
-
-
     funds = get_fund(csv_path, trackId)
 
     pitches = midiFileTo4bin(midi_path)
     chroma = prToChroma(pitches)
 
-    return combineFundChroma(funds, chroma)
+    return pitches, combineFundChroma(funds, chroma) 
+
+# -------- BEAT TABLE
+
+def genBeatTable(n):
+    table = []
+    for i in range(n):
+        beat_2 = i // 2                 # beat no compasso binário
+        bar_2 = beat_2 // 4             # compasso binário
+        beat_4 = i % 4                  # beat no compasso quaternário
+        bar_4 = i // 4                  # compasso quaternário
+        row = [i % 2, beat_2, 2, beat_4, bar_4, 4]
+        table.append(row)
+    return np.array(table)
