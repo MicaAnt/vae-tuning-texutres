@@ -11,6 +11,13 @@ from pychord import Chord, utils
 import argparse
 import os
 
+### Function to manage MIDI Files 
+
+def buildMidiPath(path, trackId):
+    return os.path.join(path, f"{trackId}.mid")
+
+#### FUNCTIONS FOR GENERATE PITCH INFORMATION 
+
 def midi_to_timeBeats(midi_file):
     """
     Processes a MIDI file and returns a table with beats and downbeats as a numpy array.
@@ -110,11 +117,42 @@ def quantize_time(input_array, n_quantization):
             quantized_times.append(current_time + subdivision * step) # Compute the quantized time for the current subdivision and append it to the quantized times list
             quantization_values.append(n_quantization) # Append the quantization value (n_quantization) to the quantization values list
 
+    
+
+    ## Tentando corrigir os beats finais --------------
     # Handle the last beat (no next time to interpolate)
-    quantized_positions.append(beat_positions[-1])
+    #quantized_positions.append(beat_positions[-1])
+    #subdivisions.append(0)
+    #quantized_times.append(time_beats[-1])
+    #quantization_values.append(n_quantization)
+
+
+    # Handle the last beat using the interval of the previous beat so that
+    # it also receives the full set of subdivisions. This prevents the
+    # final notes from collapsing into a single subdivision.
+    if len(beat_positions) > 1:
+        last_interval = time_beats[-1] - time_beats[-2]
+    else:
+        # Fallback in the unlikely case there's only a single beat
+        last_interval = 1.0
+    step = last_interval / n_quantization
+    for subdivision in range(n_quantization):
+        quantized_positions.append(beat_positions[-1])
+        subdivisions.append(subdivision)
+        quantized_times.append(time_beats[-1] + subdivision * step)
+        quantization_values.append(n_quantization)
+
+    # Add an extra entry marking the beginning of the implicit next beat so the
+    # final beat covers the full duration. This produces a row like
+    # ``[last_beat + 1, 0, next_time, n_quantization]`` which allows callers to
+    # capture the completion of the final interval.
+    quantized_positions.append(beat_positions[-1] + 1)
     subdivisions.append(0)
-    quantized_times.append(time_beats[-1])
+    quantized_times.append(time_beats[-1] + last_interval)
     quantization_values.append(n_quantization)
+
+
+    ## Fim da tentativa de corrigir o beat final
 
     # Combine results into a single numpy array
     result = np.column_stack((
@@ -212,7 +250,44 @@ def pitchDataProcessing(midi_file, notes_list, quantization):
 
   return processNoteList(notes_list, qTime)
 
-#----------- tratamento de harmonia
+### processing midi to 4 bin 
+
+def midi_to_4bin(midi_path: str) -> np.ndarray:
+    """Convert MIDI to quantized note matrix with 4 subdivisions per beat.
+
+    Parameters
+    ----------
+    midi_path : str
+        Path to MIDI file.
+
+    Returns
+    -------
+    np.ndarray
+        Matrix of shape (n, 8) with quantized note data.
+    """
+    notes = parseCOMU(midi_path)
+    quantized = pitchDataProcessing(midi_path, notes, quantization=4)
+    return quantized
+
+
+def save_npz(data: np.ndarray, out_path: str) -> None:
+    """Save the quantized notes to a compressed npz file."""
+    np.savez_compressed(out_path, quantized_notes=data)
+
+# Main function for pitch processing!!!!
+        #|
+        #|
+        #V
+
+def midiFileTo4bin(midi_path = "../midiDataTest/commu00001.mid"):
+    
+    data = midi_to_4bin(midi_path)
+   
+    return np.array(data)
+
+### -------------------------
+
+#---  FUNCTIONS TO GENERATE HARMONY REPRESENTATION 
 
 def get_fund(csv_path="./midiDataTest/commu_meta.csv", track_id="commu00001"):
     """Return a vector of chord roots for a given track.
@@ -267,55 +342,97 @@ def get_fund(csv_path="./midiDataTest/commu_meta.csv", track_id="commu00001"):
     fundamentals = [utils.note_to_val(Chord(ch[0]).root) for ch in reduced]
     return np.array(fundamentals, dtype=np.int32)
 
-### processing midi to 4 bin 
+# Function to generate chroma information
 
-def midi_to_4bin(midi_path: str) -> np.ndarray:
-    """Convert MIDI to quantized note matrix with 4 subdivisions per beat.
+def prToChroma(notes: np.ndarray) -> np.ndarray:
+    """Generate per-beat pitch class activity vectors from quantized notes.
 
     Parameters
     ----------
-    midi_path : str
-        Path to MIDI file.
+    notes : np.ndarray
+        Array with shape (n, 8) containing quantized note information in the
+        format [beat_on, subdiv_on, quant, beat_off, subdiv_off, quant, pitch,
+        velocity].
 
     Returns
     -------
     np.ndarray
-        Matrix of shape (n, 8) with quantized note data.
+        Matrix with shape (n_beats, 13). Columns 0-11 indicate active pitch
+        classes for each beat. Column 12 stores the pitch class of the lowest
+        active note or ``-1`` if no notes are active.
     """
-    notes = parseCOMU(midi_path)
-    quantized = pitchDataProcessing(midi_path, notes, quantization=4)
-    return quantized
+    if notes.size == 0:
+        return np.zeros((0, 13), dtype=int)
 
+    #beat_on = notes[:, 0]
+    #beat_off = notes[:, 3]
+    #beat_on_full = notes[:, 0] + notes[:, 1] / notes[:, 2]
+    #beat_off_full = notes[:, 3] + notes[:, 4] / notes[:, 5]
 
-def save_npz(data: np.ndarray, out_path: str) -> None:
-    """Save the quantized notes to a compressed npz file."""
-    np.savez_compressed(out_path, quantized_notes=data)
+    #beat_on = beat_on_full
+    #beat_off = beat_off_full
+    beat_on = notes[:, 0] + notes[:, 1] / notes[:, 2]
+    beat_off = notes[:, 3] + notes[:, 4] / notes[:, 5]
+    pitches = notes[:, 6].astype(int)
 
-# funcao principal aqui!!!!
-        #|
-        #|
-        #V
+    start_beat = int(np.floor(beat_on.min()))
+    end_beat = int(np.ceil(beat_off.max())) 
 
-def midiFileTo4bin(midi_path = "../midiDataTest/commu00001.mid"):
+    n_beats = max(0, end_beat - start_beat)
+    result = np.zeros((n_beats, 13), dtype=int)
+    result[:, 12] = -1
+
+    for b in range(start_beat, end_beat):
+        mask = (beat_on <= b) & (b < beat_off)
+        # include notes that start or end within this beat
+        mask = (beat_on < b + 1) & (beat_off > b) # incluiu essa linha, mas tem um problema na nota mais grave
+        active_pitches = pitches[mask]
+        if active_pitches.size == 0:
+            continue
+
+        # Compute pitch classes; use pychord if available
+        if utils is not None and hasattr(utils, "pitch_to_note"):
+            pcs = [utils.note_to_val(utils.pitch_to_note(int(p))) % 12 for p in active_pitches]
+        else:
+            pcs = [int(p) % 12 for p in active_pitches]
+
+        pcs = np.array(pcs, dtype=int)
+        beat_idx = b - start_beat
+        result[beat_idx, pcs] = 1
+        lowest_pitch = active_pitches[active_pitches.argmin()]
+        result[beat_idx, 12] = int(lowest_pitch % 12)
+
+    return result
+
+def combineFundChroma(fund, chroma):
+    n = len(fund)
+    m = chroma.shape[0]
+
+    if m > n:
+        raise ValueError("chroma has more rows than fund")
+
+    output = np.zeros((n, 14))
+    output[:, 0] = fund
+
+    # Preenche as colunas 1 a 13 com os dados disponíveis de chroma
+    output[:m, 1:] = chroma
+
+    # Se chroma tiver menos linhas que fund, completa o restante com -1 na última coluna
+    if m < n:
+        output[m:, -1] = -1
+
+    return output
+
+def midiToHarmony(trackId = "commu00002", midiPath = "../midiDataTest/", csv_path= "../midiDataTest/commu_meta.csv" ):
+
+    #csv_path="../midiDataTest/commu_meta.csv"
+    midi_path = buildMidiPath(midiPath, trackId)
     
-    #print(midi_path, out_path)
-    
-    #parser = argparse.ArgumentParser(description="Convert MIDI to 4-bin quantized NPZ")
-    #parser.add_argument("midi_path", help="Path to MIDI file")
-    #parser.add_argument("out_path", nargs="?", help="Output npz file")
-    #args = parser.parse_args()
-
-    #out_path = args.out_path
-    #if out_path is None:
-     #   base = os.path.splitext(os.path.basename(args.midi_path))[0]
-      #  out_path = base + "_4bin.npz"
-
-    data = midi_to_4bin(midi_path)
-    #print(data)
-    #save_npz(data, out_path)
-    #print(f"Saved quantized notes to {out_path}")
-    return np.array(data)
-
-### -------------------------
 
 
+    funds = get_fund(csv_path, trackId)
+
+    pitches = midiFileTo4bin(midi_path)
+    chroma = prToChroma(pitches)
+
+    return combineFundChroma(funds, chroma)
