@@ -449,3 +449,59 @@ def genBeatTable(n):
         row = [i % 2, beat_2, 2, beat_4, bar_4, 4]
         table.append(row)
     return np.array(table)
+
+#----------------- Meta data
+
+def getMetaData(csv_path="../midiDataTest/commu_meta.csv", track_id="commu00001"):
+    
+    with open(csv_path, "r", newline="") as f:
+        reader = csv.DictReader(f)
+        row = next((r for r in reader if r.get("id") == track_id), None)
+
+    if row is None:
+        raise ValueError(f"Track id {track_id} not found")
+    
+    track_role = row["track_role"]
+
+    return track_role
+
+#----------------- Main function to process midi files
+
+def GenDataSet(trackId="commu00002", dataSetPath="../midiDataTest/", csv_path="../midiDataTest/commu_meta.csv", output_dir="./commuTestNPZ"):
+    # Gera piano e chord
+    piano, chord = midiToPitchHarmony(trackId, dataSetPath, csv_path)
+
+    # Gera beat com shape (n, 6) e dtype int32
+    beat = genBeatTable(len(chord)).astype(np.int32)
+
+    # Converte chord para float64 se não estiver
+    chord = chord.astype(np.float64)
+
+    # melody e bridge vazios com shape (0, 8) e dtype int32
+    melody = np.empty((0, 8), dtype=np.int32)
+    bridge = np.empty((0, 8), dtype=np.int32)
+
+    # Converte piano para int32 se necessário
+    piano = piano.astype(np.int32)
+
+    # Metadata
+
+    track_role = getMetaData(csv_path, trackId)
+
+    # Caminho de saída
+    #save_path = f"../{trackId}.npz"
+    save_path = os.path.join(output_dir, f"{trackId}.npz")
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+    # Salva o arquivo
+    np.savez(
+        save_path,
+        beat=beat,
+        chord=chord,
+        melody=melody,
+        bridge=bridge,
+        piano=piano,
+        track_role = track_role
+    )
+
+    print(f"Arquivo salvo em {save_path}")
