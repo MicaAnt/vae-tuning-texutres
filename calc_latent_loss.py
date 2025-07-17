@@ -49,13 +49,16 @@ def compute_segment(model, x, c, pr_mat):
     total_loss, _, _, _, kl_loss, kl_chd, kl_rhy, _, _, _, _ = loss_values
     return z_chd.squeeze(0), z_txt.squeeze(0), kl_loss, kl_chd, kl_rhy, total_loss
 
-def compute_losses(npz_path, model, output_dir="./losses"):
+def compute_losses(npz_path, model, output_dir="./commuTestNPZ/losses"):
 
     # Garante que o diretório de saída existe
     os.makedirs(output_dir, exist_ok=True)
     
     # Extrai nome base do arquivo (sem caminho, sem extensão)
     base_name = os.path.splitext(os.path.basename(npz_path))[0]
+
+    meta = np.load(npz_path, allow_pickle=True)
+    track_role = meta["track_role"].item()  # Se for um objeto (tipo string)
     
     #model = load_model(device=device)
     dataset = wrap_dataset([npz_path], [0], shift_low=0, shift_high=0,
@@ -71,8 +74,6 @@ def compute_losses(npz_path, model, output_dir="./losses"):
         z_chd, z_txt, kl_loss, kl_chd, kl_rhy, total_loss = compute_segment(
             model, x_t, c_t, pr_mat_t)
 
-
-
         # Monta o nome do arquivo de saída
         segment_name = f"{base_name}-{idx+1:03d}"  # Ex: 001-001
         save_path = os.path.join(output_dir, f"{segment_name}.npz")
@@ -84,7 +85,8 @@ def compute_losses(npz_path, model, output_dir="./losses"):
                             kl_loss=kl_loss.item(),
                             kl_chd=kl_chd.item(),
                             kl_rhy=kl_rhy.item(),
-                            final_loss=total_loss.item())
+                            final_loss=total_loss.item(),
+                            track_role = track_role)
         
 def main(path):
     """Compute per-segment losses for the given NPZ file.
