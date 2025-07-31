@@ -77,3 +77,10 @@ These outputs can be used to:
      
 ```
 
+## To update 
+
+### 31/07/2025
+
+- The dataset for the VAE model was generated using the notebook `FilterCommuDataset`
+- The folder COMMUDataset was included in the project. The `midiFiles` folder are the original `raw` data and the `npzFiles` folder the preocessed data using the function `processMidiBatch`. `createBatches.py` allows the creation of batches data stores in the `batches` folder. 
+- A new function called `processMidiBatch.py` was created to process the raw `.mid` data into `.npz` data.
