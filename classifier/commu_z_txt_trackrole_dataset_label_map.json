@@ -1,0 +1,18 @@
+{
+  "class_to_id": {
+    "accompaniment": 0,
+    "bass": 1,
+    "main_melody": 2,
+    "pad": 3,
+    "riff": 4,
+    "sub_melody": 5
+  },
+  "classes": [
+    "accompaniment",
+    "bass",
+    "main_melody",
+    "pad",
+    "riff",
+    "sub_melody"
+  ]
+}
